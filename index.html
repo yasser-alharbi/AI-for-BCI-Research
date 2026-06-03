@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الذكاء الاصطناعي في الرعاية الصحية — ترجمة الإشارات الدماغية بنموذج BART</title>
+<meta name="description" content="بحث في استخدام نموذج BART لترجمة الإشارات الدماغية بجهاز EEG إلى نصوص مقروءة — مقرر Advanced Deep Learning">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&family=Amiri:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1A2744;
+    --ink-deep: #0D1B2A;
+    --paper: #F8F9FC;
+    --paper-warm: #EEF0F7;
+    --copper: #C49B5C;
+    --copper-deep: #9A7A3E;
+    --rust: #6366F1;
+    --muted: #64748B;
+    --line: rgba(26, 39, 68, 0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Tajawal', sans-serif;
+    background: var(--paper);
+    color: var(--ink-deep);
+    font-size: 17px;
+    line-height: 1.85;
+    direction: rtl;
+    overflow-x: hidden;
+  }
+
+  .num, .yr { font-family: 'Playfair Display', serif; }
+  .en { font-family: 'Playfair Display', serif; font-style: italic; }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(26, 39, 68, 0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ============ HERO ============ */
+  .hero {
+    min-height: 95vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 48px 32px 64px;
+    position: relative;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .hero-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  .hero-top .badge {
+    background: var(--rust);
+    color: var(--paper);
+    padding: 6px 14px;
+    border-radius: 2px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+  }
+
+  .hero-center {
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+    padding: 60px 0;
+  }
+
+  .hero-eyebrow {
+    font-family: 'Amiri', serif;
+    font-style: italic;
+    color: var(--copper-deep);
+    font-size: 22px;
+    margin-bottom: 24px;
+    letter-spacing: 0.02em;
+  }
+
+  .hero h1 {
+    font-family: 'Tajawal', sans-serif;
+    font-weight: 900;
+    font-size: clamp(36px, 5.5vw, 68px);
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 28px;
+    letter-spacing: -0.02em;
+  }
+
+  .hero h1 .accent {
+    color: var(--rust);
+    font-style: normal;
+    position: relative;
+  }
+
+  .hero h1 .accent::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    right: 0;
+    left: 0;
+    height: 8px;
+    background: rgba(99, 102, 241, 0.18);
+    z-index: -1;
+  }
+
+  .hero-subtitle {
+    font-size: 21px;
+    color: var(--muted);
+    max-width: 720px;
+    margin: 0 auto;
+    font-weight: 300;
+    line-height: 1.65;
+  }
+
+  .hero-supervisor {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    font-size: 15px;
+    color: var(--copper-deep);
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+
+  .term {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+    border-bottom: 1.5px dotted var(--copper);
+    padding-bottom: 1px;
+    transition: color 0.2s;
+  }
+
+  .term:hover,
+  .term:focus { color: var(--rust); outline: none; }
+
+  .term-tip {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    right: 50%;
+    transform: translateX(50%) translateY(8px);
+    background: var(--ink-deep);
+    color: var(--paper);
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.6;
+    width: max-content;
+    max-width: 300px;
+    text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 200;
+    box-shadow: 0 12px 32px rgba(13, 27, 42, 0.3);
+    letter-spacing: 0;
+  }
+
+  .term-tip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: 50%;
+    transform: translateX(50%);
+    border: 6px solid transparent;
+    border-top-color: var(--ink-deep);
+  }
+
+  .term-tip em {
+    color: var(--copper);
+    font-style: italic;
+    font-family: 'Playfair Display', serif;
+  }
+
+  .term:hover .term-tip,
+  .term:focus .term-tip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(50%) translateY(0);
+  }
+
+  .hero-bottom {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+    padding-top: 40px;
+    border-top: 1px solid var(--line);
+  }
+
+  .stat { text-align: right; }
+
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 52px;
+    line-height: 1;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+
+  .stat-num .unit {
+    font-size: 20px;
+    color: var(--copper-deep);
+    margin-right: 6px;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    line-height: 1.4;
+  }
+
+  /* ============ NAV ============ */
+  .nav {
+    position: sticky;
+    top: 0;
+    background: rgba(248, 249, 252, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 100;
+    border-bottom: 1px solid var(--line);
+    padding: 16px 0;
+  }
+
+  .nav-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .nav-logo {
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 15px;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 28px;
+    list-style: none;
+    flex-wrap: wrap;
+  }
+
+  .nav-links a {
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+    position: relative;
+    padding-bottom: 4px;
+  }
+
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 0;
+    height: 2px;
+    background: var(--rust);
+    transition: width 0.3s;
+  }
+
+  .nav-links a:hover { color: var(--rust); }
+  .nav-links a:hover::after { width: 100%; }
+
+  /* ============ SECTIONS ============ */
+  section {
+    padding: 100px 0;
+    position: relative;
+  }
+
+  .section-eyebrow {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    color: var(--copper-deep);
+    font-size: 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .section-eyebrow::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .section-eyebrow .ch {
+    font-family: 'Playfair Display', serif;
+    color: var(--rust);
+    font-weight: 900;
+    font-size: 28px;
+    line-height: 1;
+  }
+
+  .section-title {
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 900;
+    color: var(--ink);
+    margin-bottom: 24px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  .section-intro {
+    font-size: 19px;
+    color: var(--muted);
+    max-width: 800px;
+    line-height: 1.8;
+    margin-bottom: 64px;
+  }
+
+  /* ============ INTRO SECTION ============ */
+  .intro-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: start;
+  }
+
+  .pull-quote {
+    background: var(--paper-warm);
+    border-right: 4px solid var(--rust);
+    padding: 32px 36px;
+    margin: 24px 0;
+    font-family: 'Amiri', serif;
+    font-size: 22px;
+    line-height: 1.7;
+    color: var(--ink);
+    font-style: italic;
+    position: relative;
+  }
+
+  .pull-quote::before {
+    content: '"';
+    position: absolute;
+    top: -10px;
+    right: 24px;
+    font-family: 'Playfair Display', serif;
+    font-size: 80px;
+    color: var(--copper);
+    opacity: 0.4;
+    line-height: 1;
+  }
+
+  .pull-quote cite {
+    display: block;
+    margin-top: 16px;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 14px;
+    font-style: normal;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* ============ MODELS / CARDS ============ */
+  .models-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
+  .model-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 36px 32px;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+  }
+
+  .model-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 100%;
+    background: var(--ink);
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+  }
+
+  .model-card:hover::before { width: 100%; }
+  .model-card:hover { color: var(--paper); border-color: var(--ink); }
+  .model-card:hover .model-num,
+  .model-card:hover .model-name,
+  .model-card:hover .model-desc,
+  .model-card:hover .model-name-ar,
+  .model-card:hover .model-eg { color: var(--paper); }
+  .model-card:hover .model-eg { border-color: rgba(248, 249, 252, 0.2); }
+  .model-card:hover .model-tag { background: var(--rust); color: var(--paper); }
+
+  .model-card > * { position: relative; z-index: 1; }
+
+  .model-num {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--copper-deep);
+    margin-bottom: 16px;
+    transition: color 0.3s;
+  }
+
+  .model-name {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 26px;
+    color: var(--ink);
+    margin-bottom: 6px;
+    line-height: 1.2;
+    transition: color 0.3s;
+  }
+
+  .model-name-ar {
+    font-size: 15px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    transition: color 0.3s;
+  }
+
+  .model-tag {
+    display: inline-block;
+    background: var(--paper-warm);
+    color: var(--ink);
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    margin-bottom: 18px;
+    transition: all 0.3s;
+  }
+
+  .model-desc {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink-deep);
+    margin-bottom: 20px;
+    transition: color 0.3s;
+  }
+
+  .model-eg {
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    transition: all 0.3s;
+  }
+
+  .model-eg strong { color: var(--rust); font-weight: 700; }
+
+  /* ============ COMPANIES ============ */
+  .companies {
+    background: var(--paper-warm);
+    margin: 0 -32px;
+    padding: 100px 32px;
+  }
+
+  .company-row {
+    display: grid;
+    grid-template-columns: 100px 200px 1fr 160px;
+    gap: 32px;
+    align-items: center;
+    padding: 36px 0;
+    border-bottom: 1px solid var(--line);
+    transition: padding 0.3s;
+  }
+
+  .company-row:hover { padding-right: 16px; }
+  .company-row:last-child { border-bottom: none; }
+
+  .company-rank {
+    font-family: 'Playfair Display', serif;
+    font-size: 64px;
+    font-weight: 900;
+    color: var(--copper);
+    line-height: 1;
+    opacity: 0.6;
+  }
+
+  .company-name {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 26px;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+
+  .company-origin {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .company-desc {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink-deep);
+  }
+
+  .company-desc strong { color: var(--rust); font-weight: 700; }
+
+  .company-stat {
+    text-align: left;
+    padding-right: 24px;
+    border-right: 2px solid var(--rust);
+  }
+
+  .company-stat-num {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 30px;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .company-stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.3;
+  }
+
+  /* ============ TIMELINE ============ */
+  .timeline-wrap {
+    position: relative;
+    margin-top: 80px;
+  }
+
+  .tl-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 60px;
+    border: 1px solid var(--ink);
+    width: fit-content;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .tl-btn {
+    background: var(--paper);
+    color: var(--ink);
+    border: none;
+    padding: 12px 28px;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .tl-btn.active { background: var(--ink); color: var(--paper); }
+  .tl-btn:not(.active):hover { background: var(--paper-warm); }
+
+  .timeline {
+    position: relative;
+    padding: 20px 0;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 50%;
+    width: 2px;
+    background: var(--line);
+    transform: translateX(50%);
+  }
+
+  .tl-item {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 32px;
+    margin-bottom: 64px;
+    align-items: center;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeUp 0.6s forwards;
+  }
+
+  .tl-item:nth-child(1) { animation-delay: 0.1s; }
+  .tl-item:nth-child(2) { animation-delay: 0.2s; }
+  .tl-item:nth-child(3) { animation-delay: 0.3s; }
+  .tl-item:nth-child(4) { animation-delay: 0.4s; }
+  .tl-item:nth-child(5) { animation-delay: 0.5s; }
+  .tl-item:nth-child(6) { animation-delay: 0.6s; }
+  .tl-item:nth-child(7) { animation-delay: 0.7s; }
+  .tl-item:nth-child(8) { animation-delay: 0.8s; }
+  .tl-item:nth-child(9) { animation-delay: 0.9s; }
+  .tl-item:nth-child(10) { animation-delay: 1.0s; }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .tl-year {
+    grid-column: 2;
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 28px;
+    text-align: center;
+    color: var(--paper);
+    background: var(--ink);
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    position: relative;
+    z-index: 2;
+    line-height: 1;
+  }
+
+  .tl-year.future-yr {
+    background: var(--paper);
+    color: var(--rust);
+    border: 2px dashed var(--rust);
+  }
+
+  .tl-year.global { background: var(--ink); }
+  .tl-year.saudi { background: var(--rust); }
+
+  .tl-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 24px 28px;
+    position: relative;
+  }
+
+  .tl-item.right .tl-card { grid-column: 1; }
+  .tl-item.left .tl-card { grid-column: 3; }
+
+  .tl-card::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 16px;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .tl-item.right .tl-card::after { right: -16px; }
+  .tl-item.left .tl-card::after { left: -16px; }
+
+  .tl-card-flag {
+    display: inline-block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+    padding: 3px 10px;
+    font-weight: 600;
+  }
+
+  .tl-card-flag.global { background: var(--ink); color: var(--paper); }
+  .tl-card-flag.saudi { background: var(--rust); color: var(--paper); }
+
+  .tl-card h4 {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .tl-card p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .tl-card .tl-model {
+    margin-top: 12px;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--copper-deep);
+  }
+
+  /* ============ FUTURE ============ */
+  .future-section {
+    background: var(--ink);
+    color: var(--paper);
+    margin: 0 -32px;
+    padding: 120px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .future-section::before {
+    content: '2031';
+    position: absolute;
+    top: 50%;
+    left: -50px;
+    transform: translateY(-50%);
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 420px;
+    line-height: 1;
+    color: rgba(248, 249, 252, 0.03);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .future-section .container { position: relative; z-index: 1; }
+  .future-section .section-eyebrow { color: var(--copper); }
+  .future-section .section-eyebrow .ch { color: var(--copper); }
+  .future-section .section-eyebrow::after { background: rgba(248, 249, 252, 0.15); }
+  .future-section .section-title { color: var(--paper); }
+  .future-section .section-intro { color: rgba(248, 249, 252, 0.7); }
+
+  .future-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+    margin-top: 60px;
+  }
+
+  .future-item {
+    border-top: 2px solid var(--copper);
+    padding-top: 24px;
+  }
+
+  .future-item h4 {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    margin-bottom: 16px;
+    color: var(--paper);
+    line-height: 1.2;
+  }
+
+  .future-item p {
+    font-size: 15px;
+    line-height: 1.7;
+    color: rgba(248, 249, 252, 0.8);
+  }
+
+  /* ============ CHALLENGES ============ */
+  .challenges-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+    margin-top: 40px;
+  }
+
+  .challenge {
+    border-top: 4px solid var(--rust);
+    padding-top: 20px;
+  }
+
+  .challenge .ch-num {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    color: var(--copper-deep);
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .challenge h4 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+
+  .challenge p {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink-deep);
+  }
+
+  /* ============ FOOTER ============ */
+  footer {
+    background: var(--ink-deep);
+    color: var(--paper);
+    padding: 60px 32px 40px;
+    margin-top: 0;
+  }
+
+  .footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 48px;
+    margin-bottom: 40px;
+  }
+
+  .footer-about h5,
+  .footer-col h5 {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: var(--copper);
+  }
+
+  .footer-about p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: rgba(248, 249, 252, 0.7);
+  }
+
+  .footer-col ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .footer-col li {
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: rgba(248, 249, 252, 0.7);
+  }
+
+  .footer-col a {
+    color: rgba(248, 249, 252, 0.7);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .footer-col a:hover { color: var(--copper); }
+
+  .footer-bottom {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-top: 24px;
+    border-top: 1px solid rgba(248, 249, 252, 0.1);
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: rgba(248, 249, 252, 0.5);
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 900px) {
+    .hero-bottom { grid-template-columns: repeat(2, 1fr); }
+    .intro-grid { grid-template-columns: 1fr; gap: 32px; }
+    .models-grid { grid-template-columns: 1fr; }
+    .company-row { grid-template-columns: 60px 1fr; gap: 16px; }
+    .company-desc, .company-stat { grid-column: 1 / -1; }
+    .company-stat { border-right: none; padding-right: 0; text-align: right; }
+    .timeline::before { right: 32px; }
+    .tl-item { grid-template-columns: 64px 1fr; }
+    .tl-year { grid-column: 1; width: 64px; height: 64px; font-size: 20px; }
+    .tl-item.right .tl-card,
+    .tl-item.left .tl-card { grid-column: 2; }
+    .tl-item.right .tl-card::after,
+    .tl-item.left .tl-card::after { right: -16px; left: auto; }
+    .future-grid, .challenges-grid { grid-template-columns: 1fr; }
+    .footer-inner { grid-template-columns: 1fr; }
+    .future-section::before { font-size: 200px; }
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1 class="sr-only">الذكاء الاصطناعي في الرعاية الصحية — استخدام نموذج BART لترجمة الإشارات الدماغية بجهاز EEG إلى نصوص مقروءة</h1>
+
+<!-- ============ HERO ============ -->
+<header class="hero" id="top">
+  <div class="hero-top container" style="padding: 0;">
+    <span>Advanced Deep Learning · ياسر عبدالعزيز الحربي</span>
+    <span class="badge">BCI Research</span>
+  </div>
+
+  <div class="hero-center">
+    <div class="hero-eyebrow">A research case study in Healthcare AI</div>
+    <h1>ترجمة الإشارات الدماغية<br>إلى نصوص بنموذج <span class="accent">BART</span></h1>
+    <p class="hero-subtitle">كيف يُستخدم الذكاء الاصطناعي التوليدي لتحويل إشارات <span class="term" tabindex="0">EEG<span class="term-tip">جهاز تخطيط كهربية الدماغ، يسجّل النشاط الكهربائي عبر أقطاب على فروة الرأس — <em class="en">Electroencephalography</em></span></span> إلى نصوص مقروءة لمساعدة المرضى الذين فقدوا القدرة على الكلام</p>
+    <p class="hero-supervisor">تحت إشراف د. أحمد الهندي · مقرر التعلم العميق المتقدم</p>
+  </div>
+
+  <div class="hero-bottom container" style="padding: 0;">
+    <div class="stat">
+      <div class="stat-num"><span class="num">36.7</span><span class="unit">مليار $</span></div>
+      <div class="stat-label">سوق الذكاء الاصطناعي في الرعاية الصحية <span class="num">2025</span></div>
+    </div>
+    <div class="stat">
+      <div class="stat-num"><span class="num">40.1</span><span class="unit">٪</span></div>
+      <div class="stat-label">نتيجة <span class="en">BLEU-1</span> لنموذج <span class="en">BART</span> في ترجمة <span class="en">EEG</span></div>
+    </div>
+    <div class="stat">
+      <div class="stat-num"><span class="num">3.25</span><span class="unit">مليار $</span></div>
+      <div class="stat-label">حجم سوق <span class="term" tabindex="0">BCI<span class="term-tip">واجهات الدماغ والحاسوب — أنظمة تُترجم النشاط الدماغي إلى أوامر رقمية — <em class="en">Brain-Computer Interface</em></span></span> في <span class="num">2026</span></div>
+    </div>
+    <div class="stat">
+      <div class="stat-num"><span class="num">74</span><span class="unit">٪</span></div>
+      <div class="stat-label">دقة فك تشفير الكلام الداخلي — <span class="en">Stanford 2025</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ NAV ============ -->
+<nav class="nav" id="main-nav">
+  <div class="nav-inner">
+    <span class="nav-logo">🧠 AI × Brain Decoding</span>
+    <ul class="nav-links">
+      <li><a href="#intro">المقدمة</a></li>
+      <li><a href="#models">النماذج</a></li>
+      <li><a href="#companies">الشركات</a></li>
+      <li><a href="#timeline">الخط الزمني</a></li>
+      <li><a href="#challenges">التحديات</a></li>
+      <li><a href="#future">المستقبل</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ============ INTRO ============ -->
+<section id="intro">
+  <div class="container">
+    <div class="section-eyebrow"><span class="ch num">1</span><span>المقدمة</span></div>
+    <h2 class="section-title">ملايين البشر فقدوا صوتهم<br>الذكاء الاصطناعي يعيده</h2>
+    <p class="section-intro">ملايين الأشخاص حول العالم فقدوا القدرة على الكلام بسبب السكتات الدماغية، أو التصلب الجانبي الضموري (<span class="en">ALS</span>)، أو إصابات الحبل الشوكي. نموذج <span class="en">BART</span> يفتح أفقاً ثورياً لترجمة أفكارهم الصامتة إلى نصوص مقروءة — عبر قبعة <span class="en">EEG</span> على الرأس فحسب.</p>
+
+    <div class="intro-grid">
+      <div>
+        <p style="font-size: 17px; line-height: 1.9; margin-bottom: 20px;">الفرضية العبقرية التي طرحها الباحثان <span class="en">Wang & Ji</span> في مؤتمر <span class="en">AAAI 2022</span> بسيطة لكنها عميقة: الدماغ البشري يعمل كنوع خاص من «مشفّرات النصوص». عندما يقرأ الإنسان جملة، ينتج دماغه أنماطاً كهربائية يمكن محاذاتها مع الفضاء الكامن لنموذج <span class="en">BART</span> — وبذلك يستطيع النموذج توليد نصوص مفهومة من إشارات دماغية خام.</p>
+
+        <p style="font-size: 17px; line-height: 1.9;">ثلاثة عوامل تجعل هذا المجال بيئة مثالية للذكاء الاصطناعي: تعقيد البيانات الدماغية متعددة القنوات، الحاجة الملحّة للسرعة في التواصل مع المرضى، والفجوة الهائلة بين الإشارة الكهربائية الخام والمعنى اللغوي — فجوة لا يمكن سدّها إلا بنماذج التعلم العميق.</p>
+      </div>
+
+      <div>
+        <blockquote class="pull-quote">
+          أحياناً الحل لا يكون في بناء نموذج جديد من الصفر، بل في إعادة توظيف نموذج موجود بطريقة إبداعية — وهذا بالضبط ما فعله Wang & Ji مع BART.
+          <cite>— من الخاتمة الشخصية للتقرير</cite>
+        </blockquote>
+
+        <p style="font-size: 15px; line-height: 1.8; color: var(--muted); margin-top: 24px;">يعمل النظام عبر <strong style="color: var(--ink);">ثلاث مراحل</strong>: مشفّر <span class="en">EEG</span> يستخرج السمات العصبية ← طبقة إسقاط تسدّ الفجوة المجالية ← مفكّك شفرة <span class="en">BART</span> يولّد النص كلمة بكلمة مستفيداً من معرفته اللغوية المسبقة.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MODELS ============ -->
+<section id="models" style="background: var(--paper-warm); margin: 0 -32px; padding: 100px 32px;">
+  <div class="container">
+    <div class="section-eyebrow"><span class="ch num">2</span><span>نماذج التعلم العميق</span></div>
+    <h2 class="section-title">ثلاث عائلات من النماذج<br>تُحرّك فك تشفير الدماغ</h2>
+    <p class="section-intro">يستعرض التقرير ثلاث عائلات من نماذج التعلم العميق تمثّل ثلاثة أنواع مختلفة من المسائل في ترجمة الإشارات الدماغية: التوليد النصي، استخراج السمات المكانية، والفهم اللغوي العميق.</p>
+
+    <div class="models-grid">
+      <article class="model-card" id="model-bart">
+        <div class="model-num en">Model · 01</div>
+        <h3 class="model-name">BART</h3>
+        <div class="model-name-ar">النموذج التوليدي التسلسلي</div>
+        <span class="model-tag">Generative AI</span>
+        <p class="model-desc">نموذج <span class="en">Seq2Seq</span> من <span class="en">Meta</span> يجمع مشفّراً ثنائي الاتجاه (كـ <span class="en">BERT</span>) ومفكّك شفرة ذاتي الانحدار (كـ <span class="en">GPT</span>). يُدرَّب بإفساد النصوص ثم إعادة بنائها.</p>
+        <div class="model-eg"><strong>تطبيق:</strong> ورقة <span class="en">Wang & Ji (2022)</span> حقّقت <span class="num">40.1</span>٪ <span class="en">BLEU-1</span> في ترجمة <span class="en">EEG</span> إلى نصوص مفتوحة المفردات على مجموعة بيانات <span class="en">ZuCo</span>.</div>
+      </article>
+
+      <article class="model-card" id="model-cnn">
+        <div class="model-num en">Model · 02</div>
+        <h3 class="model-name">CNN & EEGNet</h3>
+        <div class="model-name-ar">الشبكات العصبية الالتفافية</div>
+        <span class="model-tag">Predictive AI</span>
+        <p class="model-desc">العمود الفقري لمعالجة الإشارات الدماغية. تستخرج الأنماط المكانية-الزمنية من بيانات <span class="en">EEG</span> متعددة القنوات (القنوات × الزمن) كصور ثنائية الأبعاد.</p>
+        <div class="model-eg"><strong>تطبيق:</strong> نظام <span class="en">Brain2Qwerty</span> من <span class="en">Meta (2025)</span> يستخدم وحدة <span class="en">CNN</span> لمعالجة نوافذ <span class="num">500</span> مللي ثانية من إشارات <span class="en">EEG/MEG</span> الخام.</div>
+      </article>
+
+      <article class="model-card" id="model-transformer">
+        <div class="model-num en">Model · 03</div>
+        <h3 class="model-name">Transformers & LLMs</h3>
+        <div class="model-name-ar">المحوّلات والنماذج اللغوية الكبيرة</div>
+        <span class="model-tag">Generative AI</span>
+        <p class="model-desc">آلية الانتباه الذاتي تلتقط العلاقات بين عناصر متباعدة في الإشارات الدماغية الطويلة. تُستخدم كمشفّرات <span class="en">EEG</span> وكنماذج لغوية لتحسين المخرجات.</p>
+        <div class="model-eg"><strong>تطبيق:</strong> نموذج <span class="en">DeWave (NeurIPS 2023)</span> يستخدم <span class="en">Transformer</span> مع مشفّر تباين كمّي لتحويل <span class="en">EEG</span> الخام إلى «شفرة منفصلة» دون علامات أحداث.</div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPANIES ============ -->
+<section id="companies" class="companies">
+  <div class="container">
+    <div class="section-eyebrow"><span class="ch num">3</span><span>الشركات والمؤسسات الرائدة</span></div>
+    <h2 class="section-title">من يفكّ شفرة الدماغ<br>في العالم اليوم</h2>
+    <p class="section-intro">خمس حالات دراسية تُمثّل خمسة مستويات من التطبيق: مختبر أبحاث عملاق، اتحاد أكاديمي رائد، شركات <span class="en">BCI</span> متخصصة، وجامعة بحثية.</p>
+
+    <div class="company-row">
+      <div class="company-rank num">01</div>
+      <div>
+        <div class="company-name">Meta AI</div>
+        <div class="company-origin">USA · FAIR Lab</div>
+      </div>
+      <p class="company-desc">مختبر <span class="en">FAIR</span> يقود أبحاث فك تشفير الدماغ بدون جراحة. مشروع <strong>Brain2Qwerty</strong> (<span class="num">2025</span>) يحلّل إشارات <span class="en">EEG/MEG</span> أثناء الكتابة. في <span class="num">2026</span> أطلقوا <strong>TRIBE</strong> — نموذج تأسيسي للدماغ مدرّب على <span class="num">1000</span>+ ساعة من بيانات <span class="en">fMRI</span>.</p>
+      <div class="company-stat">
+        <div class="company-stat-num num">81٪</div>
+        <div class="company-stat-label">دقة حرفية لأفضل المشاركين مع <span class="en">MEG</span></div>
+      </div>
+    </div>
+
+    <div class="company-row">
+      <div class="company-rank num">02</div>
+      <div>
+        <div class="company-name">BrainGate</div>
+        <div class="company-origin">Stanford / Brown · <span class="num">2025</span></div>
+      </div>
+      <p class="company-desc">اتحاد بحثي بقيادة <span class="en">Stanford</span> نجح في أغسطس <span class="num">2025</span> بفك تشفير <strong>«الكلام الداخلي»</strong> — الأفكار الصامتة — مباشرة من القشرة الحركية. ابتكروا آلية <strong>«كلمة مرور عصبية»</strong> لحماية الخصوصية: النظام لا يعمل إلا عند تخيّل عبارة محددة.</p>
+      <div class="company-stat">
+        <div class="company-stat-num num">74٪</div>
+        <div class="company-stat-label">دقة ترجمة الأفكار الداخلية لمرضى <span class="en">ALS</span></div>
+      </div>
+    </div>
+
+    <div class="company-row">
+      <div class="company-rank num">03</div>
+      <div>
+        <div class="company-name">Neuralink</div>
+        <div class="company-origin">USA · Elon Musk · <span class="num">2024</span></div>
+      </div>
+      <p class="company-desc">واجهة دماغية مزروعة بـ <span class="num">1024</span> قطباً وروبوت جراحي متخصص. توسّعت التجارب لـ <span class="num">12</span>+ مشاركاً في الولايات المتحدة وكندا والمملكة المتحدة والإمارات. حصلت على <strong>FDA Breakthrough Device</strong> لاستعادة الكلام.</p>
+      <div class="company-stat">
+        <div class="company-stat-num num">1024</div>
+        <div class="company-stat-label">قطب كهربائي في شريحة <span class="en">N1</span></div>
+      </div>
+    </div>
+
+    <div class="company-row">
+      <div class="company-rank num">04</div>
+      <div>
+        <div class="company-name">Synchron</div>
+        <div class="company-origin">Australia / USA</div>
+      </div>
+      <p class="company-desc">جهاز <strong>Stentrode</strong> يُزرع عبر الوريد الوداجي — بدون جراحة مفتوحة. يدعم التحكم بأجهزة <span class="en">Apple</span> وتكامل مع <span class="en">ChatGPT</span>. أطلقوا نموذج <strong>«Chiral»</strong> التأسيسي للإدراك العصبي في مارس <span class="num">2025</span>.</p>
+      <div class="company-stat">
+        <div class="company-stat-num num">$200M</div>
+        <div class="company-stat-label">تمويل <span class="en">Series D</span> للتسويق</div>
+      </div>
+    </div>
+
+    <div class="company-row">
+      <div class="company-rank num">05</div>
+      <div>
+        <div class="company-name">UTS — DeWave</div>
+        <div class="company-origin">Australia · <span class="num">NeurIPS 2023</span></div>
+      </div>
+      <p class="company-desc">فريق جامعة <span class="en">UTS</span> طوّر نظام <strong>DeWave</strong> الذي يترجم الأفكار الصامتة إلى نصوص بقبعة <span class="en">EEG</span> محمولة فقط. أول نظام يدمج <strong>الترميز المنفصل</strong> في ترجمة <span class="en">EEG</span> إلى نصوص — بدون علامات تتبع العين.</p>
+      <div class="company-stat">
+        <div class="company-stat-num num">~40٪</div>
+        <div class="company-stat-label"><span class="en">BLEU-1</span> بدون علامات أحداث</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TIMELINE ============ -->
+<section id="timeline">
+  <div class="container">
+    <div class="section-eyebrow"><span class="ch num">4</span><span>الخط الزمني</span></div>
+    <h2 class="section-title">تطور فك تشفير الدماغ<br>من <span class="num">2017</span> إلى <span class="num">2031</span></h2>
+    <p class="section-intro">مسار التطور العالمي في ترجمة الإشارات الدماغية يسير بالتوازي مع بناء البنية التحتية السعودية في الذكاء الاصطناعي والرعاية الصحية.</p>
+
+    <div class="timeline-wrap">
+      <div class="tl-toggle" role="tablist">
+        <button class="tl-btn active" data-filter="all">الكل</button>
+        <button class="tl-btn" data-filter="global">عالمي</button>
+        <button class="tl-btn" data-filter="saudi">سعودي</button>
+      </div>
+
+      <div class="timeline" id="timeline-items">
+
+        <div class="tl-item right" data-track="global">
+          <div class="tl-card">
+            <span class="tl-card-flag global">Global</span>
+            <h4>Attention Is All You Need</h4>
+            <p>نشر ورقة <span class="en">Transformer</span> الثورية التي أسست لجميع نماذج اللغة الحديثة — بما فيها <span class="en">BART</span> الذي سيُستخدم لاحقاً لفك تشفير الدماغ.</p>
+            <div class="tl-model en">Architecture: Transformer</div>
+          </div>
+          <div class="tl-year global num">2017</div>
+        </div>
+
+        <div class="tl-item left" data-track="global">
+          <div class="tl-year global num">2019</div>
+          <div class="tl-card">
+            <span class="tl-card-flag global">Global</span>
+            <h4>BART released by Facebook AI</h4>
+            <p>إطلاق نموذج <span class="en">BART</span> — مشفّر ثنائي الاتجاه + مفكّك شفرة ذاتي الانحدار. يُدرَّب بإفساد النصوص وإعادة بنائها. سيصبح لاحقاً الأداة الرئيسية لترجمة <span class="en">EEG</span>.</p>
+            <div class="tl-model en">Model: facebook/bart-base</div>
+          </div>
+        </div>
+
+        <div class="tl-item right" data-track="global">
+          <div class="tl-card">
+            <span class="tl-card-flag global">Global · Breakthrough</span>
+            <h4>EEG-to-Text with BART</h4>
+            <p>ورقة <span class="en">Wang & Ji</span> في <span class="en">AAAI</span> — أول ترجمة للإشارات الدماغية إلى نصوص بمفردات مفتوحة. <span class="num">40.1</span>٪ <span class="en">BLEU-1</span>. لحظة فارقة في المجال.</p>
+            <div class="tl-model en">Model: BART + EEG Encoder</div>
+          </div>
+          <div class="tl-year global num">2022</div>
+        </div>
+
+        <div class="tl-item left" data-track="global">
+          <div class="tl-year global num">2023</div>
+          <div class="tl-card">
+            <span class="tl-card-flag global">Global</span>
+            <h4>DeWave — NeurIPS 2023</h4>
+            <p>جامعة <span class="en">UTS</span> تُقدّم <span class="en">DeWave</span> — أول نظام يترجم <span class="en">EEG</span> بدون علامات تتبع العين باستخدام الترميز المنفصل و<span class="en">Contrastive Alignment</span>.</p>
+            <div class="tl-model en">Model: Discrete Codex + LLM</div>
+          </div>
+        </div>
+
+        <div class="tl-item right" data-track="global">
+          <div class="tl-card">
+            <span class="tl-card-flag global">Global</span>
+            <h4>Neuralink first human implant</h4>
+            <p>أول زرع بشري لـ <span class="en">Neuralink</span> — المريض <span class="en">Noland Arbaugh</span> يتحكم بالمؤشر والألعاب عبر التفكير فقط. بداية عصر جديد في <span class="en">BCI</span> السريري.</p>
+            <div class="tl-model en">Device: N1 chip · 1024 channels</div>
+          </div>
+          <div class="tl-year global num">2024</div>
+        </div>
+
+        <div class="tl-item left" data-track="saudi">
+          <div class="tl-year saudi num">2025</div>
+          <div class="tl-card">
+            <span class="tl-card-flag saudi">Saudi · Breakthrough</span>
+            <h4>NEOM × Paradromics</h4>
+            <p>صندوق استثمارات نيوم يُعلن شراكة مع <span class="en">Paradromics</span> لإنشاء <strong>مركز تميّز لواجهات الدماغ والحاسوب</strong> في نيوم — مع خطط لتوسيع التجارب السريرية للمملكة.</p>
+            <div class="tl-model" style="color: var(--rust);">BCI Center of Excellence</div>
+          </div>
+        </div>
+
+        <div class="tl-item right" data-track="global">
+          <div class="tl-card">
+            <span class="tl-card-flag global">Global · Breakthrough</span>
+            <h4>Inner Speech Decoded</h4>
+            <p><span class="en">Stanford / BrainGate</span> ينجحون في فك تشفير «الكلام الداخلي» — الأفكار الصامتة — بدقة <span class="num">74</span>٪. نُشر في مجلة <span class="en">Cell</span>. ابتكار «كلمة المرور العصبية» لحماية الخصوصية.</p>
+            <div class="tl-model en">Published: Cell, August 2025</div>
+          </div>
+          <div class="tl-year global num">2025</div>
+        </div>
+
+        <div class="tl-item left" data-track="saudi">
+          <div class="tl-year saudi num">2025</div>
+          <div class="tl-card">
+            <span class="tl-card-flag saudi">Saudi</span>
+            <h4>KAUST Biomedical Sciences</h4>
+            <p>إطلاق قسم العلوم الطبية الحيوية بقيادة عالم الأعصاب <span class="en">Prof. Goadsby</span>. مبادرة <span class="en">KAUST NeuroAI</span> تدمج علوم الأعصاب مع الذكاء الاصطناعي ومعالجة الإشارات.</p>
+            <div class="tl-model en">Research infrastructure</div>
+          </div>
+        </div>
+
+        <div class="tl-item right" data-track="saudi">
+          <div class="tl-card">
+            <span class="tl-card-flag saudi">Saudi</span>
+            <h4>عام الذكاء الاصطناعي</h4>
+            <p>هيئة <span class="en">SDAIA</span> تُعلن <span class="num">2026</span> «عام الذكاء الاصطناعي» مع إرشادات شاملة. مبادرة <span class="en">HUMAIN</span> توفر بنية تحتية متقدمة لمراكز البيانات.</p>
+            <div class="tl-model" style="color: var(--rust);">National AI Strategy</div>
+          </div>
+          <div class="tl-year saudi num">2026</div>
+        </div>
+
+        <div class="tl-item left" data-track="global">
+          <div class="tl-year future-yr num">2031</div>
+          <div class="tl-card" style="border: 2px dashed var(--rust); background: rgba(99, 102, 241, 0.03);">
+            <span class="tl-card-flag saudi">Future · Target</span>
+            <h4>نماذج تأسيسية للدماغ</h4>
+            <p>يُتوقع ظهور نماذج ضخمة مدرّبة على بيانات آلاف الأدمغة، قادرة على التكيف مع أي مستخدم جديد بتدريب بسيط. سوق <span class="en">BCI</span> يصل إلى <span class="num">6</span>-<span class="num">12</span> مليار دولار.</p>
+            <div class="tl-model" style="color: var(--rust);">Brain Foundation Models Era</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CHALLENGES ============ -->
+<section id="challenges">
+  <div class="container">
+    <div class="section-eyebrow"><span class="ch num">5</span><span>التحديات</span></div>
+    <h2 class="section-title">ما لا يقوله الإعلام<br>عن «قراءة الأفكار»</h2>
+    <p class="section-intro">الإعلام يُصوّر أنظمة <span class="en">BCI</span> كما لو أنها قادرة على قراءة الأفكار. الحقيقة العلمية أكثر تواضعاً: أفضل الأنظمة غير الجراحية تحقّق دقة حوالي <span class="num">40</span>٪ فقط — واعدة لكن بعيدة عن الاستخدام السريري الموثوق.</p>
+
+    <div class="challenges-grid">
+      <div class="challenge">
+        <div class="ch-num en">Challenge · 01</div>
+        <h4>شُح البيانات والتباين الفردي</h4>
+        <p>مجموعة بيانات <span class="en">ZuCo</span> — الأكثر استخداماً — محدودة. كل دماغ فريد: نموذج يعمل بكفاءة لشخص قد يفشل لآخر. بل أن استخدام <span class="en">Teacher-Forcing</span> أثناء التقييم يُضخّم نتائج <span class="en">BLEU</span> بشكل مصطنع.</p>
+      </div>
+
+      <div class="challenge">
+        <div class="ch-num en">Challenge · 02</div>
+        <h4>الخصوصية العصبية</h4>
+        <p>البيانات العصبية هي أكثر البيانات حساسية — تكشف الأفكار والمشاعر والنوايا. كاليفورنيا صنّفتها «معلومات حساسة» (<span class="en">SB 1223</span>). تشيلي أدرجت حماية الدماغ في دستورها. السؤال: من يملك بيانات دماغك؟</p>
+      </div>
+
+      <div class="challenge">
+        <div class="ch-num en">Challenge · 03</div>
+        <h4>الإطار التنظيمي</h4>
+        <p>قانون <span class="en">EU AI Act</span> يُصنّف أنظمة <span class="en">BCI</span> الطبية ضمن «عالية المخاطر». تنظيمات <span class="en">FDA</span> تتطلب مسارات ترخيص معقدة. في المملكة، <span class="en">SDAIA</span> تبني إطاراً تنظيمياً حديثاً — فرصة لتصميم تشريعات تحمي الخصوصية دون تكبيل الابتكار.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FUTURE ============ -->
+<section id="future" class="future-section">
+  <div class="container">
+    <div class="section-eyebrow"><span class="ch num">6</span><span>المستقبل</span></div>
+    <h2 class="section-title">ثلاثة تحوّلات قادمة<br>في خمس سنوات</h2>
+    <p class="section-intro">يتجه مجال ترجمة الإشارات الدماغية بحلول <span class="num">2031</span> نحو تحوّلات جوهرية. أهمها — للمختصين السعوديين — دخول المملكة كلاعب إقليمي فعلي في أبحاث <span class="en">BCI</span> عبر شراكة <span class="en">NEOM-Paradromics</span>.</p>
+
+    <div class="future-grid">
+      <div class="future-item">
+        <h4>Brain Foundation Models</h4>
+        <p>نماذج تأسيسية ضخمة مدرّبة على بيانات آلاف الأدمغة — كما فعلت <span class="en">ChatGPT</span> في اللغة. نموذج <span class="en">TRIBE</span> من <span class="en">Meta (2026)</span> هو البداية. ستُقلّل وقت المعايرة من ساعات إلى دقائق لكل مستخدم جديد عبر <span class="en">Few-Shot Learning</span>.</p>
+      </div>
+
+      <div class="future-item">
+        <h4>أجهزة غير جراحية متقدمة</h4>
+        <p>أجهزة <span class="en">Dry EEG</span> المحمولة وتقنيات <span class="en">fNIRS</span> ستسدّ الفجوة بين التكلفة المنخفضة والدقة العالية. سوق <span class="en">BCI</span> العالمي يصل إلى <span class="num">6</span>-<span class="num">12</span> مليار دولار بحلول <span class="num">2030</span>، مع انتقال كبير نحو الأجهزة الاستهلاكية.</p>
+      </div>
+
+      <div class="future-item">
+        <h4>المملكة كمختبر إقليمي</h4>
+        <p>مركز تميّز <span class="en">BCI</span> في نيوم مع <span class="en">Paradromics</span>، وقسم العلوم الطبية في <span class="en">KAUST</span>، ومبادرة <span class="en">HUMAIN</span> — كل هذه المقوّمات تُشير إلى أن المملكة تتحول لمختبر إقليمي لأبحاث واجهات الدماغ. فرصة استثنائية للمختصين السعوديين.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-about">
+      <h5>About this page</h5>
+      <p>هذه الصفحة مرافقة لتقرير بحثي في مقرر <span class="en">Advanced Deep Learning</span> حول استخدام نموذج <span class="en">BART</span> لترجمة الإشارات الدماغية بجهاز <span class="en">EEG</span> إلى نصوص مقروءة. مصمّمة بأدوات الذكاء الاصطناعي التوليدي ومنشورة على <span class="en">GitHub Pages</span>. كل الإحصاءات والشركات المذكورة موثّقة من مصادر علمية وصناعية حقيقية.</p>
+    </div>
+
+    <div class="footer-col">
+      <h5>Key Papers</h5>
+      <ul>
+        <li>Wang & Ji (AAAI 2022)</li>
+        <li>DeWave (NeurIPS 2023)</li>
+        <li>Brain2Qwerty (Meta 2025)</li>
+        <li>Inner Speech (Cell 2025)</li>
+        <li>TRIBE (Meta 2026)</li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h5>Companies & Labs</h5>
+      <ul>
+        <li><a href="https://ai.meta.com" target="_blank">Meta AI — ai.meta.com</a></li>
+        <li><a href="https://neuralink.com" target="_blank">Neuralink — neuralink.com</a></li>
+        <li><a href="https://synchron.com" target="_blank">Synchron — synchron.com</a></li>
+        <li><a href="https://braingate.org" target="_blank">BrainGate — braingate.org</a></li>
+        <li><a href="https://paradromics.com" target="_blank">Paradromics — paradromics.com</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <span>ياسر عبدالعزيز سمران الحربي · <span class="en">Advanced Deep Learning · 2026</span></span>
+    <span class="en">Built with Claude Opus 4.6 (Thinking) (Antigravity) · Hosted on GitHub Pages</span>
+  </div>
+</footer>
+
+<script>
+  // Timeline filter
+  const buttons = document.querySelectorAll('.tl-btn');
+  const items = document.querySelectorAll('.tl-item');
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.dataset.filter;
+      items.forEach(item => {
+        if (filter === 'all' || item.dataset.track === filter) {
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  // Smooth scroll for nav links
+  document.querySelectorAll('.nav-links a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target) {
+        const offset = target.offsetTop - 80;
+        window.scrollTo({ top: offset, behavior: 'smooth' });
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

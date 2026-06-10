@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>الذكاء الاصطناعي في الرعاية الصحية — ترجمة الإشارات الدماغية بنموذج BART</title>
 <meta name="description" content="بحث في استخدام نموذج BART لترجمة الإشارات الدماغية بجهاز EEG إلى نصوص مقروءة — مقرر Advanced Deep Learning">
+<meta name="keywords" content="BART, EEG, BCI, واجهات الدماغ والحاسوب, الذكاء الاصطناعي, التعلم العميق, CNN, Transformer, Diffusion, RAG, DeWave, Neuralink, الرعاية الصحية, EEG-to-Text">
+<meta name="author" content="ياسر عبدالعزيز الحربي">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#1A2744">
+<link rel="canonical" href="https://yasser-alharbi.github.io/AI-for-BCI-Research/">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="ar_SA">
+<meta property="og:title" content="الذكاء الاصطناعي في الرعاية الصحية — ترجمة الإشارات الدماغية بنموذج BART">
+<meta property="og:description" content="بحث في استخدام نموذج BART لترجمة إشارات EEG إلى نصوص مقروءة لمساعدة المرضى الذين فقدوا القدرة على الكلام.">
+<meta property="og:url" content="https://yasser-alharbi.github.io/AI-for-BCI-Research/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="ترجمة الإشارات الدماغية بنموذج BART">
+<meta name="twitter:description" content="بحث في الذكاء الاصطناعي التوليدي لترجمة إشارات EEG إلى نصوص — مقرر التعلم العميق المتقدم.">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&family=Amiri:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
@@ -909,6 +923,19 @@
     clip: rect(0,0,0,0);
   }
 
+  .skip-link {
+    position: absolute;
+    right: 12px;
+    top: -60px;
+    z-index: 200;
+    background: var(--ink-deep);
+    color: var(--paper);
+    padding: 10px 18px;
+    border-radius: 6px;
+    transition: top 0.2s ease;
+  }
+  .skip-link:focus { top: 12px; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -918,6 +945,8 @@
 </style>
 </head>
 <body>
+
+<a href="#intro" class="skip-link">تخطَّ إلى المحتوى الرئيسي</a>
 
 <h1 class="sr-only">الذكاء الاصطناعي في الرعاية الصحية — استخدام نموذج BART لترجمة الإشارات الدماغية بجهاز EEG إلى نصوص مقروءة</h1>
 
@@ -956,7 +985,7 @@
 </header>
 
 <!-- ============ NAV ============ -->
-<nav class="nav" id="main-nav">
+<nav class="nav" id="main-nav" aria-label="التنقل الرئيسي">
   <div class="nav-inner">
     <span class="nav-logo">🧠 AI × Brain Decoding</span>
     <ul class="nav-links">
@@ -1000,8 +1029,8 @@
 <section id="models" style="background: var(--paper-warm); margin: 0 -32px; padding: 100px 32px;">
   <div class="container">
     <div class="section-eyebrow"><span class="ch num">2</span><span>نماذج التعلم العميق</span></div>
-    <h2 class="section-title">ثلاث عائلات من النماذج<br>تُحرّك فك تشفير الدماغ</h2>
-    <p class="section-intro">يستعرض التقرير ثلاث عائلات من نماذج التعلم العميق تمثّل ثلاثة أنواع مختلفة من المسائل في ترجمة الإشارات الدماغية: التوليد النصي، استخراج السمات المكانية، والفهم اللغوي العميق.</p>
+    <h2 class="section-title">خمس عائلات من النماذج<br>تُحرّك فك تشفير الدماغ</h2>
+    <p class="section-intro">يستعرض التقرير خمس عائلات من نماذج التعلم العميق تمثّل أنواعاً مختلفة من المسائل في ترجمة الإشارات الدماغية: التوليد النصي، استخراج السمات المكانية، الفهم اللغوي العميق، توليد البيانات الاصطناعية بنماذج الانتشار، وتحسين دقة فك التشفير بالتوليد المعزَّز بالاسترجاع.</p>
 
     <div class="models-grid">
       <article class="model-card" id="model-bart">
@@ -1029,6 +1058,22 @@
         <span class="model-tag">Generative AI</span>
         <p class="model-desc">آلية الانتباه الذاتي تلتقط العلاقات بين عناصر متباعدة في الإشارات الدماغية الطويلة. تُستخدم كمشفّرات <span class="en">EEG</span> وكنماذج لغوية لتحسين المخرجات.</p>
         <div class="model-eg"><strong>تطبيق:</strong> نموذج <span class="en">DeWave (NeurIPS 2023)</span> يستخدم <span class="en">Transformer</span> مع مشفّر تباين كمّي لتحويل <span class="en">EEG</span> الخام إلى «شفرة منفصلة» دون علامات أحداث.</div>
+      </article>
+      <article class="model-card" id="model-diffusion">
+        <div class="model-num en">Model · 04</div>
+        <h3 class="model-name">Diffusion Models</h3>
+        <div class="model-name-ar">نماذج الانتشار التوليدية</div>
+        <span class="model-tag">Generative AI</span>
+        <p class="model-desc">تتعلّم توليد البيانات عبر عكس عملية تشويش تدريجية: مسار أمامي يضيف ضوضاء غاوسية، ومسار عكسي (بنية <span class="en">U-Net</span>) يزيلها لاسترجاع عينة جديدة. البنية ذاتها خلف <span class="en">Stable Diffusion</span>.</p>
+        <div class="model-eg"><strong>تطبيق:</strong> نظام <span class="en">DreamDiffusion (2023)</span> يعيد بناء الصور من إشارات <span class="en">EEG</span> عبر محاذاة <span class="en">CLIP</span>، كما تُولّد بيانات <span class="en">EEG</span> اصطناعية لمعالجة شُحّ البيانات.</div>
+      </article>
+      <article class="model-card" id="model-rag">
+        <div class="model-num en">Model · 05</div>
+        <h3 class="model-name">RAG</h3>
+        <div class="model-name-ar">التوليد المعزَّز بالاسترجاع</div>
+        <span class="model-tag">Generative AI</span>
+        <p class="model-desc">يجمع مُسترجِعاً يبحث في قاعدة معرفة عن أقرب النصوص دلالياً عبر تشابه المتجهات، ومولّداً (<span class="en">LLM</span>) يصهرها في مخرَج نهائي. يُرسي النتائج في مصادر حقيقية فيكبح «الهلوسة».</p>
+        <div class="model-eg"><strong>تطبيق:</strong> <span class="en">Collautti et al. (2026)</span> يبني مسار <span class="en">EEG-to-Text</span> قائماً على <span class="en">RAG</span> مع <span class="en">Llama-3-8B</span> على مجموعة <span class="en">ZuCo</span> — يعالج مشكلة <span class="en">Teacher-Forcing</span> مباشرةً.</div>
       </article>
     </div>
   </div>
@@ -1300,6 +1345,7 @@
         <li>Brain2Qwerty (Meta 2025)</li>
         <li>Inner Speech (Cell 2025)</li>
         <li>TRIBE (Meta 2026)</li>
+        <li>RAG EEG-to-Text (Collautti 2026)</li>
       </ul>
     </div>
 
